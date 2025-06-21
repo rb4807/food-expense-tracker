@@ -3,6 +3,7 @@ import 'package:food_tracker/models/daily_expense.dart';
 import 'package:food_tracker/models/meal_data.dart';
 import 'package:intl/intl.dart';
 import '../services/storage_service.dart';
+import '../services/user_preferences.dart';
 import '../widgets/meal_button.dart';
 import '../widgets/meal_edit_modal.dart';
 
@@ -20,11 +21,24 @@ class _HomeScreenState extends State<HomeScreen> {
   int monthlyTotal = 0;
   bool modalVisible = false;
   String selectedMeal = 'breakfast';
+  String userName = 'Guest';
+  String userInitials = 'GU';
 
   @override
   void initState() {
     super.initState();
+    _loadUserData();
     loadData();
+  }
+
+  Future<void> _loadUserData() async {
+    final name = await UserPreferences.getUserName();
+    setState(() {
+      userName = name ?? 'Guest';
+      userInitials = userName.isNotEmpty
+          ? userName.split(' ').map((n) => n[0]).take(2).join().toUpperCase()
+          : 'GU';
+    });
   }
 
   Future<void> loadData() async {
@@ -38,6 +52,39 @@ class _HomeScreenState extends State<HomeScreen> {
       weeklyTotal = weekly.fold(0, (sum, day) => sum + day.total);
       monthlyTotal = monthly.fold(0, (sum, day) => sum + day.total);
     });
+  }
+
+  Future<void> _showUserNameDialog(BuildContext context) async {
+    final TextEditingController controller = TextEditingController(text: userName);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Your Name'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: 'Enter your name'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      await UserPreferences.setUserName(result);
+      setState(() {
+        userName = result;
+        userInitials = result.split(' ').map((n) => n[0]).take(2).join().toUpperCase();
+      });
+    }
   }
 
   Future<void> handleMealResponse(String meal, bool hadMeal) async {
@@ -190,48 +237,64 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-Widget _buildHeader(int totalToday) {
-  return Column(
-    children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
+  Widget _buildHeader(int totalToday) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                RichText(
-                  text: const TextSpan(
-                    style: TextStyle(fontSize: 16, color: Color(0xFF94a3b8), fontWeight: FontWeight.w500),
-                    children: [
-                      TextSpan(text: 'Hey, '),
-                      TextSpan(
-                        text: 'Rajesh Balasubramaniam',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                GestureDetector(
+                  onTap: () => _showUserNameDialog(context),
+                  child: RichText(
+                    text: TextSpan(
+                      style: const TextStyle(
+                        fontSize: 16, 
+                        color: Color(0xFF94a3b8), 
+                        fontWeight: FontWeight.w500
                       ),
-                    ],
+                      children: [
+                        const TextSpan(text: 'Hey, '),
+                        TextSpan(
+                          text: userName,
+                          style: const TextStyle(
+                            color: Colors.white, 
+                            fontWeight: FontWeight.w700
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-      const SizedBox(height: 20),
+                const SizedBox(height: 20),
                 Text(
                   DateFormat('EEEE, MMM d').format(DateTime.now()),
-                  style: const TextStyle(fontSize: 14, color: Color(0xFF64748b)),
+                  style: const TextStyle(
+                    fontSize: 14, 
+                    color: Color(0xFF64748b)
+                  ),
                 ),
               ],
             ),
-            Container(
-              width: 40,
-              height: 40,
-              decoration: const BoxDecoration(
-                color: Color(0xFF3b82f6),
-                borderRadius: BorderRadius.all(Radius.circular(20)),
-              ),
-              child: const Center(
-                child: Text(
-                  'RB',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+            GestureDetector(
+              onTap: () => _showUserNameDialog(context),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF3b82f6),
+                  borderRadius: BorderRadius.all(Radius.circular(20)),
+                ),
+                child: Center(
+                  child: Text(
+                    userInitials,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -241,27 +304,27 @@ Widget _buildHeader(int totalToday) {
         const SizedBox(height: 20),
         
         // Wallet card with decorative arc
-         Stack(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF18456f), Color(0xFF0f3457)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
+        Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF18456f), Color(0xFF0f3457)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
@@ -276,7 +339,8 @@ Widget _buildHeader(int totalToday) {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
@@ -362,37 +426,36 @@ Widget _buildHeader(int totalToday) {
                 ),
               ),
             ),
-            // Decorative arc in top-right corner
-              Positioned(
-            top: 0,
-            right: 0,
-            child: ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(20),
-              ),
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    center: const Alignment(1.2, -1.2),
-                    radius: 1.0,
-                    colors: [
-                      Colors.white.withOpacity(0.15),
-                      Colors.white.withOpacity(0.05),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.6, 1.0],
+            Positioned(
+              top: 0,
+              right: 0,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(20),
+                ),
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: const Alignment(1.2, -1.2),
+                      radius: 1.0,
+                      colors: [
+                        Colors.white.withOpacity(0.15),
+                        Colors.white.withOpacity(0.05),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.6, 1.0],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    ],
-  );
-}
+          ],
+        ),
+      ],
+    );
+  }
 
   Widget _buildMealsSection() {
     return Column(
@@ -470,7 +533,9 @@ Widget _buildHeader(int totalToday) {
                             width: 24,
                             height: 24,
                             decoration: BoxDecoration(
-                              color: mealData.had ? const Color(0xFF10b981) : const Color(0xFFf59e0b),
+                              color: mealData.had 
+                                ? const Color(0xFF10b981) 
+                                : const Color(0xFFf59e0b),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
